@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ movie.title }} ({{ movie.year }})</h2>
+<p><strong>Genres:</strong> {{ movie.genres | join(', ') }}</p>
+<p><strong>Director:</strong> {{ movie.director }}</p>
+<p><strong>Cast:</strong> {{ movie.cast | join(', ') }}</p>
+<p><strong>Rating:</strong> {{ movie.rating }}</p>
+
+{% if session.get('username') %}
+  {% if movie._id|string in user_watchlist %}
+    <p class="text-success">Already in your watchlist</p>
+  {% else %}
+    <a href="{{ url_for('add_watchlist', movie_id=movie._id) }}" class="btn btn-warning">Add to Watchlist</a>
+  {% endif %}
+{% else %}
+  <p><a href="{{ url_for('login') }}">Login</a> to add to watchlist</p>
+{% endif %}
+<h4>Movies with the same actors</h4>
+
+{% if related_movies %}
+  <ul>
+    {% for m in related_movies %}
+      <li>
+        <a href="{{ url_for('movie_page', movie_id=m._id) }}">
+          {{ m.title }} ({{ m.year }})
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No related movies found.</p>
+{% endif %}
+{% endblock %}
