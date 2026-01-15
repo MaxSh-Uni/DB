@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 
-client = MongoClient("mongodb://localhost:27017,localhost:27018/?replicaSet=rs0")
+client = MongoClient("mongodb://localhost:27017")
 db = client["movie_tracker"]
 movies_col = db["movies"]
 
@@ -53,6 +53,81 @@ movies_col.insert_many([
     {"title": "The Green Mile", "year": 1999, "genres": ["Drama"], "director": "Frank Darabont", "cast": ["Tom Hanks"], "rating": 8.6}
 ])
 
-# movies_col.insert_many(movies)
+print("Movies inserted")
+
+actors_col = db["actors"]
+
+actors_col.delete_many({})
+actors_col.insert_many([
+    {"name": "Leonardo DiCaprio", "birth_year": 1974, "nationality": "USA"},
+    {"name": "Brad Pitt", "birth_year": 1963, "nationality": "USA"},
+    {"name": "Tom Hanks", "birth_year": 1956, "nationality": "USA"},
+    {"name": "Jamie Foxx", "birth_year": 1967, "nationality": "USA"},
+    {"name": "Keanu Reeves", "birth_year": 1964, "nationality": "Canada"},
+    {"name": "Ryan Gosling", "birth_year": 1980, "nationality": "Canada"},
+    {"name": "Emma Stone", "birth_year": 1988, "nationality": "USA"},
+    {"name": "Hugh Jackman", "birth_year": 1968, "nationality": "Australia"},
+    {"name": "Christian Bale", "birth_year": 1974, "nationality": "UK"},
+    {"name": "Al Pacino", "birth_year": 1940, "nationality": "USA"},
+    {"name": "Robert De Niro", "birth_year": 1943, "nationality": "USA"},
+    {"name": "Jake Gyllenhaal", "birth_year": 1980, "nationality": "USA"},
+    {"name": "Michael Keaton", "birth_year": 1951, "nationality": "USA"},
+    {"name": "Natalie Portman", "birth_year": 1981, "nationality": "Israel/USA"},
+    {"name": "Benedict Cumberbatch", "birth_year": 1976, "nationality": "UK"},
+    {"name": "Chiwetel Ejiofor", "birth_year": 1977, "nationality": "UK"},
+    {"name": "Mahershala Ali", "birth_year": 1974, "nationality": "USA"}
+])
+
+print("Actors inserted")
+
+# ---------- Reviews ----------
+reviews_col = db["reviews"]
+
+reviews_col.delete_many({})
+reviews_col.insert_many([
+    {"movie_title": "The Wolf of Wall Street", "user": "user1", "rating": 9, "comment": "Amazing performance by DiCaprio!"},
+    {"movie_title": "Shutter Island", "user": "user2", "rating": 8, "comment": "Great thriller with unexpected twists."},
+    {"movie_title": "Catch Me If You Can", "user": "user3", "rating": 8, "comment": "Fun and engaging story."},
+    {"movie_title": "Django Unchained", "user": "user4", "rating": 9, "comment": "Excellent Tarantino film."},
+    {"movie_title": "The Revenant", "user": "user5", "rating": 7, "comment": "Brutal but visually stunning."},
+    {"movie_title": "Se7en", "user": "user6", "rating": 10, "comment": "Classic thriller, very intense."},
+    {"movie_title": "Mad Max: Fury Road", "user": "user7", "rating": 8, "comment": "Non-stop action, visually amazing."},
+    {"movie_title": "John Wick", "user": "user8", "rating": 7, "comment": "Great action choreography."},
+    {"movie_title": "Blade Runner 2049", "user": "user9", "rating": 9, "comment": "Beautiful cinematography and story."},
+    {"movie_title": "La La Land", "user": "user10", "rating": 8, "comment": "Lovely musical, fantastic chemistry."}
+])
+
+print("Reviews inserted")
+
+
+actors = list(actors_col.find())
+actor_name_to_id = {actor['name']: actor['_id'] for actor in actors}
+
+for movie in movies_col.find():
+    cast_ids = [actor_name_to_id[name] for name in movie['cast'] if name in actor_name_to_id]
+    movies_col.update_one(
+        {'_id': movie['_id']},
+        {'$set': {'cast_ids': cast_ids}}
+    )
+
+print("Movies linked with actors")
+
+movies = list(movies_col.find())
+title_to_id = {movie['title']: movie['_id'] for movie in movies}
+
+for review in reviews_col.find():
+    movie_title = review['movie_title']
+    if movie_title in title_to_id:
+        movies_col.update_one(
+            {'_id': title_to_id[movie_title]},
+            {'$push': {'review_ids': review['_id']}}
+        )
+        reviews_col.update_one(
+            {'_id': review['_id']},
+            {'$set': {'movie_id': title_to_id[movie_title]}}
+        )
+
+print("Reviews linked with movies")
+
 
 print("Database initialized")

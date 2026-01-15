@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Actors{% endblock %}
+{% block content %}
+<h1>Actors</h1>
+<ul class="list-group">
+  {% for actor in actors %}
+    <li class="list-group-item">
+      <a href="{{ url_for('actor_detail', actor_id=actor._id|string) }}">{{ actor.name }}</a>
+    </li>
+  {% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ actor.name }}{% endblock %}
+{% block content %}
+<h1>{{ actor.name }}</h1>
+<p>Birth Year: {{ actor.birth_year }}</p>
+<p>Nationality: {{ actor.nationality }}</p>
+
+<h3>Movies</h3>
+<ul class="list-group">
+  {% for movie in movies %}
+    <li class="list-group-item">
+      <a href="{{ url_for('movie_detail', movie_id=movie._id|string) }}">{{ movie.title }} ({{ movie.year }})</a>
+    </li>
+  {% endfor %}
+</ul>
+
+<a href="{{ url_for('actor_list') }}" class="btn btn-secondary mt-3">Back to Actors</a>
+{% endblock %}

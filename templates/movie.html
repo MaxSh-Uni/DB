@@ -1,33 +1,49 @@
 {% extends "base.html" %}
+{% block title %}{{ movie.title }}{% endblock %}
 {% block content %}
-<h2>{{ movie.title }} ({{ movie.year }})</h2>
-<p><strong>Genres:</strong> {{ movie.genres | join(', ') }}</p>
-<p><strong>Director:</strong> {{ movie.director }}</p>
-<p><strong>Cast:</strong> {{ movie.cast | join(', ') }}</p>
-<p><strong>Rating:</strong> {{ movie.rating }}</p>
+<h1>{{ movie.title }} ({{ movie.year }})</h1>
+<p>Director: {{ movie.director }}</p>
+<p>Genres: {{ movie.genres | join(', ') }}</p>
+<p>Rating: {{ movie.rating }}</p>
 
-{% if session.get('username') %}
-  {% if movie._id|string in user_watchlist %}
-    <p class="text-success">Already in your watchlist</p>
+<h3>Actors</h3>
+<ul class="list-group mb-3">
+  {% for actor in actors %}
+    <li class="list-group-item">
+      <a href="{{ url_for('actor_detail', actor_id=actor._id|string) }}">{{ actor.name }}</a>
+    </li>
+  {% endfor %}
+</ul>
+
+<h3>Reviews</h3>
+<ul class="list-group mb-3">
+  {% for review in reviews %}
+    <li class="list-group-item">
+      <strong>{{ review.user }}</strong>: {{ review.rating }}/10 - {{ review.comment }}
+    </li>
+  {% endfor %}
+</ul>
+
+<h4>Add a Review</h4>
+<form action="{{ url_for('add_review', movie_id=movie._id|string) }}" method="post" class="mb-3">
+  <div class="form-group">
+    <input class="form-control mb-2" type="text" name="user" placeholder="Your name" required>
+    <input class="form-control mb-2" type="number" name="rating" placeholder="Rating" min="1" max="10" required>
+    <input class="form-control mb-2" type="text" name="comment" placeholder="Comment" required>
+  </div>
+  <button class="btn btn-success" type="submit">Submit</button>
+</form>
+
+<h3>Movies with the Same Actors</h3>
+<ul class="list-group mb-3">
+  {% for smovie in similar_movies %}
+    <li class="list-group-item">
+      <a href="{{ url_for('movie_detail', movie_id=smovie._id|string) }}">{{ smovie.title }} ({{ smovie.year }})</a>
+    </li>
   {% else %}
-    <a href="{{ url_for('add_watchlist', movie_id=movie._id) }}" class="btn btn-warning">Add to Watchlist</a>
-  {% endif %}
-{% else %}
-  <p><a href="{{ url_for('login') }}">Login</a> to add to watchlist</p>
-{% endif %}
-<h4>Movies with the same actors</h4>
+    <li class="list-group-item">No similar movies found.</li>
+  {% endfor %}
+</ul>
 
-{% if related_movies %}
-  <ul>
-    {% for m in related_movies %}
-      <li>
-        <a href="{{ url_for('movie_page', movie_id=m._id) }}">
-          {{ m.title }} ({{ m.year }})
-        </a>
-      </li>
-    {% endfor %}
-  </ul>
-{% else %}
-  <p>No related movies found.</p>
-{% endif %}
+<a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Movies</a>
 {% endblock %}

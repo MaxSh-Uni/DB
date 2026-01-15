@@ -1,94 +1,88 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for
 from flask_bootstrap import Bootstrap
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING, DESCENDING
 from bson.objectid import ObjectId
 
 app = Flask(__name__)
-app.secret_key = "your_secret_key"  # Для сессий
-Bootstrap(app)
+app.secret_key = "key"
+bootstrap = Bootstrap(app)
 
-client = MongoClient("mongodb://localhost:27017,localhost:27018/?replicaSet=rs0")
-
+client = MongoClient("mongodb://localhost:27017")
 db = client["movie_tracker"]
+
 movies_col = db["movies"]
-users_col = db["users"]
+actors_col = db["actors"]
+reviews_col = db["reviews"]
 
 @app.route("/")
 def index():
-    sort = request.args.get("sort")
+    sort_param = request.args.get("sort", "name")
 
-    sort_options = {
-        "title": ("title", 1),
-        "year": ("year", -1),
-        "rating": ("rating", -1)
-    }
-
-    if sort in sort_options:
-        field, direction = sort_options[sort]
-        movies = list(movies_col.find().sort(field, direction))
+    if sort_param == "name":
+        movies = movies_col.find().sort("title", ASCENDING)
+    elif sort_param == "year":
+        movies = movies_col.find().sort("year", DESCENDING)
+    elif sort_param == "rating":
+        movies = movies_col.find().sort("rating", DESCENDING)
     else:
-        movies = list(movies_col.find())
+        movies = movies_col.find()
 
-    return render_template("index.html", movies=movies, sort=sort)
+    return render_template("index.html", movies=movies, sort_param=sort_param)
+
 
 @app.route("/movie/<movie_id>")
-def movie_page(movie_id):
+def movie_detail(movie_id):
     movie = movies_col.find_one({"_id": ObjectId(movie_id)})
-    user_watchlist = []
-    if "username" in session:
-        user = users_col.find_one({"username": session["username"]})
-        if user:
-            user_watchlist = user.get("watchlist", [])
 
-    related_movies = list(
-        movies_col.find({
-            "cast": {"$in": movie.get("cast", [])},
-            "_id": {"$ne": movie["_id"]}
-        }).limit(5)
+    actors = actors_col.find({"_id": {"$in": movie.get("cast_ids", [])}})
+
+    reviews = reviews_col.find({"movie_id": movie["_id"]})
+
+    similar_movies = []
+    if movie.get("cast_ids"):
+        similar_movies = movies_col.find({
+            "_id": {"$ne": movie["_id"]},
+            "cast_ids": {"$in": movie["cast_ids"]}
+        }).limit(10)
+
+    return render_template("movie.html", movie=movie, actors=actors, reviews=reviews, similar_movies=similar_movies)
+
+
+@app.route("/movie/<movie_id>/review", methods=["POST"])
+def add_review(movie_id):
+    user = request.form["user"]
+    rating = int(request.form["rating"])
+    comment = request.form["comment"]
+
+    review_id = reviews_col.insert_one({
+        "movie_id": ObjectId(movie_id),
+        "user": user,
+        "rating": rating,
+        "comment": comment
+    }).inserted_id
+
+    movies_col.update_one(
+        {"_id": ObjectId(movie_id)},
+        {"$push": {"review_ids": review_id}}
     )
-    return render_template("movie.html", movie=movie, user_watchlist=user_watchlist, related_movies=related_movies)
 
-@app.route("/add_watchlist/<movie_id>")
-def add_watchlist(movie_id):
-    if "username" in session:
-        users_col.update_one(
-            {"username": session["username"]},
-            {"$addToSet": {"watchlist": movie_id}}
-        )
-    return redirect(url_for("movie_page", movie_id=movie_id))
+    return redirect(url_for('movie_detail', movie_id=movie_id))
 
-@app.route("/watchlist")
-def watchlist():
-    if "username" not in session:
-        return redirect(url_for("login"))
 
-    user = users_col.find_one({"username": session["username"]})
-    watchlist_ids = user.get("watchlist", [])
+@app.route("/actors")
+def actor_list():
+    actors = actors_col.find()
+    return render_template("actors.html", actors=actors)
 
-    movies = []
-    if watchlist_ids:
-        movies = list(
-            movies_col.find({
-                "_id": {"$in": [ObjectId(mid) for mid in watchlist_ids]}
-            })
-        )
 
-    return render_template("watchlist.html", movies=movies)
+@app.route("/actor/<actor_id>")
+def actor_detail(actor_id):
+    actor = actors_col.find_one({"_id": ObjectId(actor_id)})
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        username = request.form["username"]
-        session["username"] = username
-        if not users_col.find_one({"username": username}):
-            users_col.insert_one({"username": username, "watchlist": []})
-        return redirect(url_for("index"))
-    return render_template("login.html")
+    movies = movies_col.find({"cast_ids": ObjectId(actor_id)})
 
-@app.route("/logout")
-def logout():
-    session.pop("username", None)
-    return redirect(url_for("index"))
+    return render_template("actor.html", actor=actor, movies=movies)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
